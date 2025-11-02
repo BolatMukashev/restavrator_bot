@@ -1,0 +1,147 @@
+import base64
+import asyncio
+import logging
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import CommandStart
+from openai import OpenAI
+from aiogram.types import BufferedInputFile
+from config import TELEGRAM_BOT_TOKEN, OPENROUTER_API_KEY
+
+
+# ------------------------------------------------------------------------ НАСТРОЙКА --------------------------------------------------------
+
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# Инициализация бота и диспетчера
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
+dp = Dispatcher()
+
+
+# ------------------------------------------------------------------------ ОБРАБОТКА ФОТО -----------------------------------------------------
+
+
+class PhotoRestorer:
+    """Класс для восстановления фото"""
+    def __init__(self):
+        self.client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
+        self.promt = "Restore and colorize this old or damaged photo"
+        self.model = "google/gemini-2.5-flash-image"
+        
+    async def restore(self, bot: Bot, file_path: str):
+        try:
+            # скачивание изображение по file_id
+            downloaded = await bot.download_file(file_path)
+            img_bytes = downloaded.read()
+            img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
+            # отправка изображения в нано банана. Универсальный вызов — через chat.completions
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": self.promt
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": f"data:image/png;base64,{img_b64}"
+                            }
+                        ],
+                    }
+                ],
+            )
+
+            # 💾 Сохраняем весь ответ в файл
+            # with open("response_full.txt", "w", encoding="utf-8") as f:
+            #     json.dump(response.model_dump(), f, ensure_ascii=False, indent=2)
+
+            # получаем ответ от нано банана
+            image_data_url = response.choices[0].message.images[0]["image_url"]["url"]
+            image_b64 = image_data_url.split(",")[1]
+            
+            # Декодируем base64 в байты
+            image_bytes = base64.b64decode(image_b64)
+            
+            # Создаём буффер изображения напрямую из байтов
+            photo_file = BufferedInputFile(image_bytes, filename="restored.png")
+
+        except Exception as e:
+            await logger.error(f"⚠️ Ошибка при обработке изображения: {e}")
+            return None
+            
+        else:
+            return photo_file
+
+
+# ------------------------------------------------------------------------ ЛОГИКА --------------------------------------------------------
+
+
+@dp.message(CommandStart())
+async def cmd_start(message: types.Message):
+    """Обработчик команды /start"""
+    await message.answer(
+        "👋 Привет! Я бот для реставрации фотографий на основе OpenRouter AI.\n\n"
+        "📸 Отправь мне старую или поврежденную фотографию, "
+        "и я попробую её восстановить!\n\n"
+        "✨ Я могу:\n"
+        "• Убрать царапины и шум\n"
+        "• Улучшить качество и резкость\n"
+        "• Восстановить повреждённые участки\n"
+        "• Улучшить цвета и контраст\n\n"
+        "Просто пришли фото, и я начну работу!"
+    )
+
+
+@dp.message(F.photo)
+async def handle_photo(message: types.Message):
+    await message.answer("🪄 Восстанавливаю фото, подожди немного...")
+
+    # Скачиваем фото
+    photo = message.photo[-1]
+    file_id = await bot.get_file(photo.file_id)
+    file_path = file_id.file_path
+    
+    photo_restorer = PhotoRestorer()
+    photo_file = await photo_restorer.restore(bot, file_path)
+    
+    if photo_file is None:
+        await message.reply_photo(photo_file, caption="Ошибка при обработке изображения. Попробуйте отправить фото ещё раз")
+    else:
+        await message.reply_photo(photo_file, caption="✨ Готово!")
+            
+
+# фото платное (с ценой в описании)
+# @dp.message(F.photo  & (F.media_group_id == None) & (F.caption != None))
+# async def handle_photo_pay(message: types.Message):
+#     file_id = message.photo[-1].file_id
+#     price = int(message.caption)
+#     media = InputPaidMediaPhoto(media=file_id)
+#     await asyncio.gather(*map(lambda channel: bot.send_paid_media(chat_id=channel,  media=[media], star_count=price), channels))
+
+
+@dp.message(~(F.text | F.photo | F.location))
+async def delete_unwanted(message: types.Message):
+    try:
+        await message.delete()
+    except Exception as e:
+        print(f"⚠️ Не удалось удалить сообщение: {e}")
+
+
+# ------------------------------------------------------------------------ ЗАПУСК --------------------------------------------------------
+
+
+async def main():
+    print("Бот запущен...")
+    await dp.start_polling(bot)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
