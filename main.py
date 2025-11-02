@@ -112,7 +112,7 @@ async def handle_photo(message: types.Message):
     photo_file = await photo_restorer.restore(bot, file_path)
     
     if photo_file is None:
-        await message.reply_photo(photo_file, caption="Ошибка при обработке изображения. Попробуйте отправить фото ещё раз")
+        await message.answer("Ошибка при обработке изображения. Попробуйте отправить фото ещё раз")
     else:
         await message.reply_photo(photo_file, caption="✨ Готово!")
             
@@ -126,12 +126,9 @@ async def handle_photo(message: types.Message):
 #     await asyncio.gather(*map(lambda channel: bot.send_paid_media(chat_id=channel,  media=[media], star_count=price), channels))
 
 
-@dp.message(~(F.text | F.photo | F.location))
+@dp.message(~(F.text | F.photo))
 async def delete_unwanted(message: types.Message):
-    try:
-        await message.delete()
-    except Exception as e:
-        print(f"⚠️ Не удалось удалить сообщение: {e}")
+    await message.answer("⚠️ Мы работаем только с фотографиями. Попробуйте отправить фото")
 
 
 # ------------------------------------------------------------------------ ЗАПУСК --------------------------------------------------------
