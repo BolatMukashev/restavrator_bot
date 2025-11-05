@@ -1,11 +1,16 @@
 import base64
 import asyncio
 import logging
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import CommandStart
+from aiogram.filters.command import Command
 from openai import OpenAI
 from aiogram.types import BufferedInputFile
+from aiogram.types.input_paid_media_photo import InputPaidMediaPhoto
 from config import TELEGRAM_BOT_TOKEN, OPENROUTER_API_KEY
+
+
+# 21.5 тг себестоимость 1 фото
 
 
 # ------------------------------------------------------------------------ НАСТРОЙКА --------------------------------------------------------
@@ -19,6 +24,14 @@ logger = logging.getLogger(__name__)
 # Инициализация бота и диспетчера
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 dp = Dispatcher()
+
+
+commands_router = Router()
+media_router = Router()
+payment_router = Router()
+
+
+PRICE = 1
 
 
 # ------------------------------------------------------------------------ ОБРАБОТКА ФОТО -----------------------------------------------------
@@ -83,7 +96,7 @@ class PhotoRestorer:
 # ------------------------------------------------------------------------ ЛОГИКА --------------------------------------------------------
 
 
-@dp.message(CommandStart())
+@commands_router.message(CommandStart())
 async def cmd_start(message: types.Message):
     """Обработчик команды /start"""
     await message.answer(
@@ -99,12 +112,13 @@ async def cmd_start(message: types.Message):
     )
 
 
-@dp.message(F.photo)
+@media_router.message(F.photo)
 async def handle_photo(message: types.Message):
     await message.answer("🪄 Восстанавливаю фото, подожди немного...")
 
     # Скачиваем фото
     photo = message.photo[-1]
+    # print(photo.file_id)
     file_id = await bot.get_file(photo.file_id)
     file_path = file_id.file_path
     
@@ -114,24 +128,17 @@ async def handle_photo(message: types.Message):
     if photo_file is None:
         await message.answer("Ошибка при обработке изображения. Попробуйте отправить фото ещё раз")
     else:
-        await message.reply_photo(photo_file, caption="✨ Готово!")
-            
-
-# фото платное (с ценой в описании)
-# @dp.message(F.photo  & (F.media_group_id == None) & (F.caption != None))
-# async def handle_photo_pay(message: types.Message):
-#     file_id = message.photo[-1].file_id
-#     price = int(message.caption)
-#     media = InputPaidMediaPhoto(media=file_id)
-#     await asyncio.gather(*map(lambda channel: bot.send_paid_media(chat_id=channel,  media=[media], star_count=price), channels))
-
-
-@dp.message(~(F.text | F.photo))
-async def delete_unwanted(message: types.Message):
-    await message.answer("⚠️ Мы работаем только с фотографиями. Попробуйте отправить фото")
+        media = InputPaidMediaPhoto(media=photo_file, caption="Фото будет доступно после оплаты")
+        await message.reply_paid_media(star_count=PRICE, media=[media],
+                                       caption="✨ Готово!\nЧтобы сохранить опллоченное фото, перешлите его нашему боту @payed_photo_download_bot")
 
 
 # ------------------------------------------------------------------------ ЗАПУСК --------------------------------------------------------
+
+
+dp.include_router(commands_router)
+dp.include_router(media_router)
+dp.include_router(payment_router)
 
 
 async def main():
