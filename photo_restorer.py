@@ -1,0 +1,64 @@
+import base64
+from openai import OpenAI
+from aiogram.types import BufferedInputFile
+from config import OPENROUTER_API_KEY
+from aiogram import Bot
+
+
+# 21.5 тг себестоимость 1 фото
+
+
+class PhotoRestorer:
+    """Класс для восстановления фото"""
+    def __init__(self):
+        self.client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
+        self.promt = "Restore and colorize this old or damaged photo"
+        self.model = "google/gemini-2.5-flash-image"
+        
+    async def restore(self, bot: Bot, file_path: str):
+        try:
+            # скачивание изображение по file_id
+            downloaded = await bot.download_file(file_path)
+            img_bytes = downloaded.read()
+            img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
+            # отправка изображения в нано банана. Универсальный вызов — через chat.completions
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": self.promt
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": f"data:image/png;base64,{img_b64}"
+                            }
+                        ],
+                    }
+                ],
+            )
+
+            # 💾 Сохраняем весь ответ в файл
+            # with open("response_full.txt", "w", encoding="utf-8") as f:
+            #     json.dump(response.model_dump(), f, ensure_ascii=False, indent=2)
+
+            # получаем ответ от нано банана
+            image_data_url = response.choices[0].message.images[0]["image_url"]["url"]
+            image_b64 = image_data_url.split(",")[1]
+            
+            # Декодируем base64 в байты
+            image_bytes = base64.b64decode(image_b64)
+            
+            # Создаём буффер изображения напрямую из байтов
+            photo_file = BufferedInputFile(image_bytes, filename="restored.png")
+
+        except Exception as e:
+            await print(f"⚠️ Ошибка при обработке изображения: {e}")
+            return None
+            
+        else:
+            return photo_file

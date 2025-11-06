@@ -6,5 +6,7 @@ config = dotenv_values(".env")
 
 
 # Конфигурация
-TELEGRAM_BOT_TOKEN = config.get("TELEGRAM_BOT_TOKEN", None) or os.environ.get("TELEGRAM_BOT_TOKEN")
-OPENROUTER_API_KEY = config.get("OPENROUTER_API_KEY") or os.environ.get("OPENROUTER_API_KEY")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or config.get("TELEGRAM_BOT_TOKEN")
+OPENROUTER_API_KEY =  os.environ.get("OPENROUTER_API_KEY") or config.get("OPENROUTER_API_KEY")
+
+AMOUNT = 1
