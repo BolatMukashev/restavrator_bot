@@ -3,9 +3,11 @@ from openai import OpenAI
 from aiogram.types import BufferedInputFile
 from config import OPENROUTER_API_KEY
 from aiogram import Bot
+import logging
 
 
 # 21.5 тг себестоимость 1 фото
+# лимит 5$ - 3000 тг
 
 
 class PhotoRestorer:
@@ -57,7 +59,7 @@ class PhotoRestorer:
             photo_file = BufferedInputFile(image_bytes, filename="restored.png")
 
         except Exception as e:
-            await print(f"⚠️ Ошибка при обработке изображения: {e}")
+            logging.error(f"⚠️ Ошибка при обработке изображения: {e}")
             return None
             
         else:

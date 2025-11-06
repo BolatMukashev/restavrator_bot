@@ -4,9 +4,9 @@ from . import (
 )
 
 LANGUAGES = {
-    "ru": {"TEXT": ru_text.TEXT, "BUTTONS_TEXT": ru_text.BUTTONS_TEXT, "NOTIFICATIONS": ru_text.NOTIFICATIONS},
-    "en": {"TEXT": en_text.TEXT, "BUTTONS_TEXT": en_text.BUTTONS_TEXT, "NOTIFICATIONS": en_text.NOTIFICATIONS},
-    "kk": {"TEXT": kk_text.TEXT, "BUTTONS_TEXT": kk_text.BUTTONS_TEXT, "NOTIFICATIONS": kk_text.NOTIFICATIONS},
+    "ru": {"TEXT": ru_text.TEXT, "BUTTONS_TEXT": ru_text.BUTTONS_TEXT},
+    "en": {"TEXT": en_text.TEXT, "BUTTONS_TEXT": en_text.BUTTONS_TEXT},
+    "kk": {"TEXT": kk_text.TEXT, "BUTTONS_TEXT": kk_text.BUTTONS_TEXT},
 }
 
 

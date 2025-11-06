@@ -2,7 +2,6 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import CommandStart
-from aiogram.types import BufferedInputFile
 from buttons import *
 from languages import get_texts, desc
 from config import TELEGRAM_BOT_TOKEN, AMOUNT
@@ -57,7 +56,7 @@ async def handle_photo(message: types.Message):
 
     label = texts["TEXT"]["payment"]["label"]
     title = texts["TEXT"]["payment"]["title"]
-    description = texts["TEXT"]["payment"]["description"].format(amount=AMOUNT)
+    description = texts["TEXT"]["payment"]["description"]
 
     prices = [types.LabeledPrice(label=label, amount=AMOUNT)]
 
@@ -68,7 +67,8 @@ async def handle_photo(message: types.Message):
         provider_token="",
         currency="XTR",
         prices=prices,
-        reply_markup=payment_button(texts["BUTTONS_TEXT"]["pay"])
+        reply_markup=payment_button(texts["BUTTONS_TEXT"]["pay"].format(amount=AMOUNT)),
+        reply_to_message_id=message_id
     )
 
     # сохраняем в Кэш
