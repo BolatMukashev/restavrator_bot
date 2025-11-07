@@ -160,7 +160,8 @@ class YDBClient:
 @dataclass
 class User:
     telegram_id: int
-    first_name: Optional[str] = None
+    full_name: Optional[str] = None
+    language_code: Optional[str] = None
     free_generate: bool = True
     created_at: Optional[int] = None  # Храним как timestamp (секунды с эпохи)  
 
@@ -172,7 +173,8 @@ class UserClient(YDBClient):
         self.table_schema = """
             CREATE TABLE `users` (
                 `telegram_id` Uint64 NOT NULL,
-                `first_name` Utf8,
+                `full_name` Utf8,
+                `language_code` Utf8,
                 `free_generate` Bool,
                 `created_at` Uint64,
                 PRIMARY KEY (`telegram_id`)
@@ -192,14 +194,15 @@ class UserClient(YDBClient):
         await self.execute_query(
             """
             DECLARE $telegram_id AS Uint64;
-            DECLARE $first_name AS Utf8?;
-            DECLARE $free_generate AS Bool?;
+            DECLARE $full_name AS Utf8?;
+            DECLARE $language_code AS Utf8?;
+            DECLARE $free_generate AS Bool;
             DECLARE $created_at AS Uint64?;
 
             UPSERT INTO users (
-                telegram_id, first_name, free_generate, created_at
+                telegram_id, full_name, language_code, free_generate, created_at
             ) VALUES (
-                $telegram_id, $first_name, $free_generate, $created_at
+                $telegram_id, $full_name, $language_code, $free_generate, $created_at
             );
             """,
             self._to_params(user)
@@ -211,7 +214,7 @@ class UserClient(YDBClient):
         result = await self.execute_query(
             """
             DECLARE $telegram_id AS Uint64;
-            SELECT telegram_id, first_name, free_generate, created_at
+            SELECT telegram_id, full_name, language_code, free_generate, created_at
             FROM users
             WHERE telegram_id = $telegram_id;
             """,
@@ -229,7 +232,7 @@ class UserClient(YDBClient):
 
         query = f"""
             DECLARE $telegram_id AS Uint64;
-            DECLARE $free_generate AS Bool?;
+            DECLARE $free_generate AS Bool;
 
             UPDATE users
             SET free_generate = $free_generate
@@ -253,7 +256,8 @@ class UserClient(YDBClient):
     def _row_to_user(self, row) -> User:
         return User(
             telegram_id=row["telegram_id"],
-            first_name=row.get("first_name"),
+            full_name=row.get("full_name"),
+            language_code=row.get("language_code"),
             free_generate=row.get("free_generate"),
             created_at=row.get("created_at")
         )
@@ -261,7 +265,8 @@ class UserClient(YDBClient):
     def _to_params(self, user: User) -> dict:
         return {
             "$telegram_id": (user.telegram_id, ydb.PrimitiveType.Uint64),
-            "$first_name": (user.first_name, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
+            "$full_name": (user.full_name, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
+            "$language_code": (user.language_code, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
             "$free_generate": (user.free_generate, ydb.PrimitiveType.Bool),
             "$created_at": (user.created_at, ydb.OptionalType(ydb.PrimitiveType.Uint64)),
         }
@@ -352,6 +357,7 @@ class CacheClient(YDBClient):
             """
             DECLARE $telegram_id AS Uint64;
             DECLARE $message_id AS Int32;
+            
             DELETE FROM cache WHERE telegram_id = $telegram_id AND message_id = $message_id;
             """,
             {

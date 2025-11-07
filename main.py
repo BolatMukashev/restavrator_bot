@@ -6,6 +6,7 @@ from buttons import *
 from languages import get_texts, desc
 from config import TELEGRAM_BOT_TOKEN, AMOUNT
 from photo_restorer import PhotoRestorer
+from ydb_models import *
 
 
 # ------------------------------------------------------------------------ НАСТРОЙКА --------------------------------------------------------
@@ -26,17 +27,21 @@ media_router = Router()
 payment_router = Router()
 
 
-cache = {}
-
-
 # ------------------------------------------------------------------------ ЛОГИКА --------------------------------------------------------
 
 
 @commands_router.message(CommandStart())
 async def cmd_start(message: types.Message):
     """Обработчик команды /start"""
+    user_id = message.from_user.id
+    full_name = message.from_user.full_name
     user_lang = message.from_user.language_code
     texts = await get_texts(user_lang)
+
+    # добавление пользователя в бд
+    async with UserClient() as user_client:
+        user = User(user_id, full_name, user_lang)
+        await user_client.insert_user(user)
     
     await message.answer(texts["TEXT"]["start"])
 
@@ -51,8 +56,10 @@ async def handle_photo(message: types.Message):
     file_id = message.photo[-1].file_id
     print(type(file_id), file_id)
     
-    # сохранить в кэш user_id, message_id, file_id
-    cache[message_id] = file_id
+    # сохраняем в Кэш "ссылку" на фото
+    async with CacheClient() as cache_client:
+        new_cache = Cache(user_id, message_id, file_id)
+        await cache_client.insert_cache(new_cache)
 
     label = texts["TEXT"]["payment"]["label"]
     title = texts["TEXT"]["payment"]["title"]
@@ -60,7 +67,7 @@ async def handle_photo(message: types.Message):
 
     prices = [types.LabeledPrice(label=label, amount=AMOUNT)]
 
-    sent_invoice = await message.answer_invoice(
+    await message.answer_invoice(
         title=title,
         description=description,
         payload=f"payment|{AMOUNT}|{message_id}",
@@ -70,17 +77,6 @@ async def handle_photo(message: types.Message):
         reply_markup=payment_button(texts["BUTTONS_TEXT"]["pay"].format(amount=AMOUNT)),
         reply_to_message_id=message_id
     )
-
-    # сохраняем в Кэш
-    # async with CacheClient() as cache_client:
-    #     new_cache = Cache(user_id, "payment_message_id", sent_invoice.message_id)
-    #     await cache_client.insert_cache(new_cache)
-
-    # await callback.answer(texts["NOTIFICATIONS"]["payment_sent"])
-
-    # markup = await get_payment_buttons(texts["BUTTONS_TEXT"]["amount"].format(amount=AMOUNT), AMOUNT, message_id)
-
-    # await message.answer(texts["TEXT"]["payment"]["intention"], reply_markup=markup, reply_to_message_id=message.message_id)
 
 
 # ------------------------------------------------------------------- ОПЛАТА -------------------------------------------------------
@@ -97,20 +93,23 @@ async def on_successful_payment(message: types.Message):
     user_id = message.from_user.id
     user_lang = message.from_user.language_code
 
-    # получение текста на языке пользователя
-    texts = await get_texts(user_lang)
+    # получаем кэш
+    async with CacheClient() as cache_client:
+        cache = await cache_client.get_cache_by_telegram_id(user_id)
     
-    _, amount, message_id_str = payload.split("|")
+    texts = await get_texts(user_lang) # получение текста на языке пользователя
+    
+    _, amount, message_id_str = payload.split("|") # получение данных
 
-    # async with PaymentClient() as payment_client:
-    #     new_payment = Payment(user_id, int(amount), ref_code)
-    #     await payment_client.insert_payment(new_payment)
+    # добавление платежа в бд
+    async with PaymentClient() as payment_client:
+        new_payment = Payment(user_id, int(message_id_str), int(amount), PaymentType.RESTORATION.value)
+        await payment_client.insert_payment(new_payment)
 
-    # Скачиваем фото
     await message.answer(texts["TEXT"]["payment"]["payment_accepted"])
 
-    file_id = cache[int(message_id_str)]
-
+    # получение и обработка фотографии
+    file_id = cache.get(int(message_id_str))
     file_info = await bot.get_file(file_id)
     file_path = file_info.file_path
     
@@ -122,11 +121,9 @@ async def on_successful_payment(message: types.Message):
     else:
         await message.answer_photo(photo=photo_file, caption=texts["TEXT"]["photo_is_ready"], reply_to_message_id=int(message_id_str))
 
-
-    # удаление старого сообщения
-    # async with CacheClient() as cache_client:
-    #     cached_messages = await cache_client.get_cache_by_telegram_id(user_id)
-    #     payment_message_id = cached_messages.get("payment_message_id")
+    # подчищаем мусор
+    async with CacheClient() as cache_client:
+        await cache_client.delete_cache_by_telegram_id_and_message_id(user_id, int(message_id_str))
 
 
 # ------------------------------------------------------------------------ ЗАПУСК --------------------------------------------------------
