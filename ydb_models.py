@@ -140,10 +140,8 @@ class YDBClient:
 
         tables = [
             "users",
-            "user_settings",
             "payments",
             "cache",
-            "reactions"
         ]
 
         for table in tables:
@@ -187,6 +185,12 @@ class UserClient(YDBClient):
     
     async def insert_user(self, user: User) -> User:
         """Вставка или обновление пользователя (UPSERT) и возврат объекта User"""
+
+        existing_user = await self.get_user_by_id(user.telegram_id)
+
+        # Если пользователь уже есть, сохраняем текущее значение free_generate
+        if existing_user is not None:
+            user.free_generate = existing_user.free_generate
 
         if user.created_at is None:
             user.created_at = int(datetime.now(timezone.utc).timestamp())
@@ -278,8 +282,9 @@ class UserClient(YDBClient):
 @dataclass
 class Cache:
     telegram_id: int = None
-    message_id: Optional[int] = None
+    photo_message_id: Optional[int] = None
     file_id: Optional[str] = None
+    pay_message_id: Optional[int] = None
 
 
 class CacheClient(YDBClient):
@@ -289,9 +294,10 @@ class CacheClient(YDBClient):
         self.table_schema = """
             CREATE TABLE `cache` (
                 `telegram_id` Uint64 NOT NULL,
-                `message_id` Int32,
+                `photo_message_id` Int32,
                 `file_id` Utf8,
-                PRIMARY KEY (`telegram_id`, `message_id`)
+                `pay_message_id` Int32,
+                PRIMARY KEY (`telegram_id`, `photo_message_id`)
             )
         """
         
@@ -308,34 +314,40 @@ class CacheClient(YDBClient):
         await self.execute_query(
             """
             DECLARE $telegram_id AS Uint64;
-            DECLARE $message_id AS Int32?;
+            DECLARE $photo_message_id AS Int32?;
             DECLARE $file_id AS Utf8?;
+            DECLARE $pay_message_id AS Int32?;
 
-            UPSERT INTO cache (telegram_id, message_id, file_id)
-            VALUES ($telegram_id, $message_id, $file_id);
+            UPSERT INTO cache (telegram_id, photo_message_id, file_id, pay_message_id)
+            VALUES ($telegram_id, $photo_message_id, $file_id, $pay_message_id);
             """,
             self._to_params(cache)
         )
 
-    async def get_cache_by_telegram_id(self, telegram_id: int) -> dict[int, str]:
+    async def get_cache_by_telegram_id(self, telegram_id: int) -> dict[int, dict[str, str]]:
         """
         Получение всех записей кэша для пользователя в виде словаря:
-        {message_id: file_id}
+        {photo_message_id: {"photo": file_id, "pay_message_id": pay_message_id}}
         """
         result = await self.execute_query(
             """
             DECLARE $telegram_id AS Uint64;
 
-            SELECT message_id, file_id
+            SELECT photo_message_id, file_id, pay_message_id
             FROM cache
             WHERE telegram_id = $telegram_id
-            ORDER BY message_id;
+            ORDER BY photo_message_id;
             """,
             {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
         )
 
         rows = result[0].rows
-        return {row["message_id"]: row["file_id"] for row in rows}
+        return {
+            row["photo_message_id"]: {
+                "photo": row["file_id"],
+                "pay_message_id": row.get("pay_message_id")
+            } for row in rows
+            }
 
     async def delete_cache_by_telegram_id(self, telegram_id: int) -> None:
         """
@@ -349,20 +361,20 @@ class CacheClient(YDBClient):
             {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
         )
 
-    async def delete_cache_by_telegram_id_and_message_id(self, telegram_id: int, message_id: int) -> None:
+    async def delete_cache_by_telegram_id_and_photo_message_id(self, telegram_id: int, photo_message_id: int) -> None:
         """
-        Удаление записи кэша по telegram_id и message_id
+        Удаление записи кэша по telegram_id и photo_message_id
         """
         await self.execute_query(
             """
             DECLARE $telegram_id AS Uint64;
-            DECLARE $message_id AS Int32;
+            DECLARE $photo_message_id AS Int32;
             
-            DELETE FROM cache WHERE telegram_id = $telegram_id AND message_id = $message_id;
+            DELETE FROM cache WHERE telegram_id = $telegram_id AND photo_message_id = $photo_message_id;
             """,
             {
                 "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
-                "$message_id": (message_id, ydb.PrimitiveType.Int32)
+                "$photo_message_id": (photo_message_id, ydb.PrimitiveType.Int32)
             }
         )
 
@@ -370,16 +382,17 @@ class CacheClient(YDBClient):
     def _row_to_cache(self, row) -> Cache:
         return Cache(
             telegram_id=row["telegram_id"],
-            message_id=row.get("message_id"),
+            photo_message_id=row.get("photo_message_id"),
             file_id=row.get("file_id"),
-            
+            pay_message_id=row.get("pay_message_id")
         )
 
     def _to_params(self, cache: Cache) -> dict:
         return {
             "$telegram_id": (cache.telegram_id, ydb.PrimitiveType.Uint64),
-            "$message_id": (cache.message_id, ydb.OptionalType(ydb.PrimitiveType.Int32)),
+            "$photo_message_id": (cache.photo_message_id, ydb.OptionalType(ydb.PrimitiveType.Int32)),
             "$file_id": (cache.file_id, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
+            "$pay_message_id": (cache.pay_message_id, ydb.OptionalType(ydb.PrimitiveType.Int32)),
         }
 
 
@@ -502,8 +515,18 @@ async def create_tables_on_ydb():
         print("Table 'PAYMENTS' created successfully!")
 
 
+# --------------------------------------------------------- ОЧИСТИТЬ ТАБЛИЦЫ -------------------------------------------------------
+
+
+async def clear_tables_on_ydb():
+    async with YDBClient() as client:
+        await client.clear_all_tables()
+        print("Tables cleared successfully!")
+
+
 # --------------------------------------------------------- ЗАПУСК -------------------------------------------------------
 
 
 if __name__ == "__main__":
-    asyncio.run(create_tables_on_ydb())
+    asyncio.run(clear_tables_on_ydb())
+

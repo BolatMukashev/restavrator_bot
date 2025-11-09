@@ -14,10 +14,10 @@ class PhotoRestorer:
     """Класс для восстановления фото"""
     def __init__(self):
         self.client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
-        self.promt = "Restore and colorize this old or damaged photo"
+        self.standart_promt = "Restore and colorize this old or damaged photo"
         self.model = "google/gemini-2.5-flash-image"
         
-    async def restore(self, bot: Bot, file_path: str):
+    async def restore(self, bot: Bot, file_path: str, user_promt: str = None):
         try:
             # скачивание изображение по file_id
             downloaded = await bot.download_file(file_path)
@@ -33,7 +33,7 @@ class PhotoRestorer:
                         "content": [
                             {
                                 "type": "text",
-                                "text": self.promt
+                                "text": user_promt or self.standart_promt
                             },
                             {
                                 "type": "image_url",
