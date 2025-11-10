@@ -15,4 +15,5 @@ YDB_TOKEN = os.environ.get("YDB_TOKEN") or config.get("YDB_TOKEN")
 
 AMOUNT = 1
 
-ADMIN = os.environ.get("ADMIN") or config.get("ADMIN")
+ADMIN_ID = os.environ.get("ADMIN_ID") or config.get("ADMIN_ID")
+

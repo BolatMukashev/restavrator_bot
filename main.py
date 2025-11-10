@@ -7,7 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from buttons import *
 from languages import get_texts, desc
-from config import TELEGRAM_BOT_TOKEN, AMOUNT, ADMIN
+from config import TELEGRAM_BOT_TOKEN, AMOUNT, ADMIN_ID
 from photo_restorer import PhotoRestorer
 from ydb_models import *
 from languages.desc import DESCRIPTIONS, SHORT_DESCRIPTIONS, NAMES
@@ -29,13 +29,20 @@ dp = Dispatcher()
 commands_router = Router()
 media_router = Router()
 payment_router = Router()
+cleanup_router = Router()
+
+
+dp.include_router(commands_router)
+dp.include_router(payment_router)
+dp.include_router(media_router)
+dp.include_router(cleanup_router)
 
 
 # установка описания
-@dp.message(Command("set_description"))
+@commands_router.message(Command("set_description"))
 async def cmd_set_description(message: types.Message):
     user_id = message.from_user.id
-    if user_id == ADMIN:
+    if user_id == int(ADMIN_ID):
         # установка описания для бота на разных языках
         for lang, text in DESCRIPTIONS.items():
             try:
@@ -233,7 +240,7 @@ async def on_successful_payment(message: types.Message):
 # ------------------------------------------------------------------------ ДРУГИЕ ФОРМАТЫ --------------------------------------------------------
 
 
-@dp.message(~(F.document | F.photo | F.successful_payment))
+@cleanup_router.message(~(F.document | F.photo | F.successful_payment))
 async def delete_unwanted(message: types.Message):
     try:
         await message.delete()
@@ -242,11 +249,6 @@ async def delete_unwanted(message: types.Message):
 
 
 # ------------------------------------------------------------------------ ЗАПУСК --------------------------------------------------------
-
-
-dp.include_router(payment_router)
-dp.include_router(commands_router)
-dp.include_router(media_router)
 
 
 async def main():
