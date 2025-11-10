@@ -14,7 +14,7 @@ class PhotoRestorer:
     """Класс для восстановления фото"""
     def __init__(self):
         self.client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
-        self.standart_promt = "Restore and colorize this old or damaged photo"
+        self.standart_promt = "Restore and colorize this old or damaged photo. Remove photo frame and repair torn edges"
         self.model = "google/gemini-2.5-flash-image"
         
     async def restore(self, bot: Bot, file_path: str, user_promt: str = None):

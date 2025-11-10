@@ -14,3 +14,5 @@ YDB_ENDPOINT = os.environ.get("YDB_ENDPOINT") or config.get("YDB_ENDPOINT")
 YDB_TOKEN = os.environ.get("YDB_TOKEN") or config.get("YDB_TOKEN")
 
 AMOUNT = 1
+
+ADMIN = os.environ.get("ADMIN") or config.get("ADMIN")

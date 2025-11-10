@@ -2,13 +2,15 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import CommandStart
+from aiogram.filters.command import Command
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from buttons import *
 from languages import get_texts, desc
-from config import TELEGRAM_BOT_TOKEN, AMOUNT
+from config import TELEGRAM_BOT_TOKEN, AMOUNT, ADMIN
 from photo_restorer import PhotoRestorer
 from ydb_models import *
+from languages.desc import DESCRIPTIONS, SHORT_DESCRIPTIONS, NAMES
 
 
 # ------------------------------------------------------------------------ НАСТРОЙКА --------------------------------------------------------
@@ -27,6 +29,39 @@ dp = Dispatcher()
 commands_router = Router()
 media_router = Router()
 payment_router = Router()
+
+
+# установка описания
+@dp.message(Command("set_description"))
+async def cmd_set_description(message: types.Message):
+    user_id = message.from_user.id
+    if user_id == ADMIN:
+        # установка описания для бота на разных языках
+        for lang, text in DESCRIPTIONS.items():
+            try:
+                await bot.set_my_description(description=text, language_code=lang)
+            except Exception as e:
+                print(f"Ошбика установки описания для языка {lang} - {e}")
+            else:
+                print("Описание для бота установлено ✅")
+
+        # установка короткого описания для бота на разных языках
+        for lang, text in SHORT_DESCRIPTIONS.items():
+            try:
+                await bot.set_my_short_description(short_description=text, language_code=lang)
+            except Exception as e:
+                print(f"Ошбика установки короткого описания для языка {lang} - {e}")
+            else:
+                print("Короткое описание для бота установлено ✅")
+
+        # установка имени бота на разных языках
+        for lang, name in NAMES.items():
+            try:
+                await bot.set_my_name(name=name, language_code=lang)
+            except Exception as e:
+                print(f"Ошбика установки имени для языка {lang} - {e}")
+            else:
+                print("Название бота установлено ✅")
 
 
 # ------------------------------------------------------------------------ ЛОГИКА --------------------------------------------------------
