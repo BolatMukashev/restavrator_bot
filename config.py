@@ -17,3 +17,7 @@ AMOUNT = 1
 
 ADMIN_ID = os.environ.get("ADMIN_ID") or config.get("ADMIN_ID")
 
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+WEBAPP_HOST = os.environ.get("WEBAPP_HOST")
+WEBAPP_PORT = os.environ.get("WEBAPP_PORT")
+

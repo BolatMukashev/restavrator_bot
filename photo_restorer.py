@@ -19,11 +19,17 @@ class PhotoRestorer:
         
     async def restore(self, bot: Bot, file_path: str, user_promt: str = None):
         try:
+            logging.info(f"🔄 Начало обработки: {file_path}")
+
             # скачивание изображение по file_id
             downloaded = await bot.download_file(file_path)
             img_bytes = downloaded.read()
-            img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+            logging.info(f"📥 Скачано байт: {len(img_bytes)}")
 
+            img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+            logging.info(f"🔐 Base64 закодировано")
+
+            logging.info(f"📤 Отправка в OpenRouter...")
             # отправка изображения в нано банана. Универсальный вызов — через chat.completions
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -47,13 +53,18 @@ class PhotoRestorer:
             # 💾 Сохраняем весь ответ в файл
             # with open("response_full.txt", "w", encoding="utf-8") as f:
             #     json.dump(response.model_dump(), f, ensure_ascii=False, indent=2)
-
+            
+            logging.info(f"✅ Получен ответ от OpenRouter")
+            logging.info(f"📊 Тип ответа: {type(response)}")
+            logging.info(f"📊 Choices: {len(response.choices)}")
+            
             # получаем ответ от нано банана
             image_data_url = response.choices[0].message.images[0]["image_url"]["url"]
             image_b64 = image_data_url.split(",")[1]
             
             # Декодируем base64 в байты
             image_bytes = base64.b64decode(image_b64)
+            logging.info(f"✅ Изображение декодировано, размер: {len(image_bytes)}")
             
             # Создаём буффер изображения напрямую из байтов
             photo_file = BufferedInputFile(image_bytes, filename="restored.png")

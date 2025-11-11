@@ -6,7 +6,7 @@ from aiogram.filters.command import Command
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from buttons import *
-from languages import get_texts, desc
+from languages import get_texts
 from config import TELEGRAM_BOT_TOKEN, AMOUNT, ADMIN_ID
 from photo_restorer import PhotoRestorer
 from ydb_models import *
