@@ -15,8 +15,8 @@ YDB_TOKEN = os.environ.get("YDB_TOKEN") or config.get("YDB_TOKEN")
 
 
 #TODO поменять прайс перед релизом
-AMOUNT = 1
-AMOUNT_PRO = 1
+AMOUNT = 30
+AMOUNT_PRO = 50
 
 ADMIN_ID = os.environ.get("ADMIN_ID") or config.get("ADMIN_ID")
 ASTANA_ID = os.environ.get("ASTANA_ID") or config.get("ASTANA_ID")
