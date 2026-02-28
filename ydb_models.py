@@ -42,7 +42,7 @@ class YDBClient:
         self.token = token
         self.driver = None
         self.pool = None
-        self.credentials =  ydb.iam.MetadataUrlCredentials() #ydb.AccessTokenCredentials(self.token) #
+        self.credentials = ydb.iam.MetadataUrlCredentials() #ydb.AccessTokenCredentials(self.token) #
     
     async def __aenter__(self):
         """Async context manager entry"""

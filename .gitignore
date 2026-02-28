@@ -6,3 +6,4 @@ docker_instruction.txt
 Dockerfile
 main_w.py
 .dockerignore
+*.txt
