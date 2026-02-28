@@ -30,5 +30,6 @@ TEXT = {
 }
 
 BUTTONS_TEXT = {
-    'pay': "Pay ⭐ {amount}"
+    'pay': "Recovery ⭐ {amount}",
+    'pay_pro': "Improved recovery ⭐ {amount}"
 }

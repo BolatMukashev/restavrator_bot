@@ -13,9 +13,15 @@ YDB_PATH = os.environ.get("YDB_PATH") or config.get("YDB_PATH")
 YDB_ENDPOINT = os.environ.get("YDB_ENDPOINT") or config.get("YDB_ENDPOINT")
 YDB_TOKEN = os.environ.get("YDB_TOKEN") or config.get("YDB_TOKEN")
 
+
+#TODO поменять прайс перед релизом
 AMOUNT = 1
+AMOUNT_PRO = 1
 
 ADMIN_ID = os.environ.get("ADMIN_ID") or config.get("ADMIN_ID")
+ASTANA_ID = os.environ.get("ASTANA_ID") or config.get("ASTANA_ID")
+
+ADMINS = [int(ADMIN_ID), int(ASTANA_ID)]
 
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 WEBAPP_HOST = os.environ.get("WEBAPP_HOST")

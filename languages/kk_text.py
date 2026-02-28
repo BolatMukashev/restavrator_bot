@@ -30,5 +30,6 @@ TEXT = {
 }
 
 BUTTONS_TEXT = {
-    'pay': "Төлеу ⭐ {amount}"
+    'pay': "Қалпына келтіру ⭐ {amount}",
+    'pay_pro': "Жақсартылған қалпына келтіру ⭐ {amount}"
 }

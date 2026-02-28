@@ -7,7 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from buttons import *
 from languages import get_texts
-from config import TELEGRAM_BOT_TOKEN, AMOUNT, ADMIN_ID
+from config import TELEGRAM_BOT_TOKEN, AMOUNT, AMOUNT_PRO, ADMIN_ID, ADMINS
 from photo_restorer import PhotoRestorer
 from ydb_models import *
 from languages.desc import DESCRIPTIONS, SHORT_DESCRIPTIONS, NAMES
@@ -98,6 +98,10 @@ async def handle_photo_or_document(message: types.Message):
     texts = await get_texts(user_lang)
     caption = message.caption
 
+    if user_id in ADMINS:
+        AMOUNT = 1
+        AMOUNT_PRO = 1
+
     # Определяем тип вложения
     if message.photo:
         file_id = message.photo[-1].file_id
@@ -143,23 +147,45 @@ async def handle_photo_or_document(message: types.Message):
         title = texts["TEXT"]["payment"]["title"]
         description = texts["TEXT"]["payment"]["description"]
 
+        # --- Первый invoice (AMOUNT) ---
         prices = [types.LabeledPrice(label=label, amount=AMOUNT)]
-
+        button_1 = payment_button(
+            texts["BUTTONS_TEXT"]["pay"].format(amount=AMOUNT),
+        )
         pay_message = await message.answer_invoice(
             title=title,
             description=description,
-            payload=f"payment|{AMOUNT}|{message_id}|{file_type}",
+            payload=f"payment|standard|{message_id}|{file_type}",
             provider_token="",
             currency="XTR",
             prices=prices,
-            reply_markup=payment_button(texts["BUTTONS_TEXT"]["pay"].format(amount=AMOUNT)),
+            reply_markup=button_1,
             reply_to_message_id=message_id
         )
 
+        # --- Второй invoice (AMOUNT_2) ---
+        prices_2 = [types.LabeledPrice(label=label, amount=AMOUNT_PRO)]
+        button_2 = payment_button(
+            texts["BUTTONS_TEXT"]["pay_pro"].format(amount=AMOUNT_PRO),
+        )
+        pay_message_2 = await message.answer_invoice(
+            title=title,
+            description=description,
+            payload=f"payment|pro|{message_id}|{file_type}",
+            provider_token="",
+            currency="XTR",
+            prices=prices_2,
+            reply_markup=button_2,
+            reply_to_message_id=message_id
+        )
+
+        # TODO кэш записывается поверх другого, new_cache_2 поверх new_cache
         # сохраняем в Кэш "ссылку" на фото
         async with CacheClient() as cache_client:
             new_cache = Cache(user_id, message_id, file_id, pay_message.message_id)
+            new_cache_2 = Cache(user_id, message_id, file_id, pay_message_2.message_id)
             await cache_client.insert_cache(new_cache)
+            await cache_client.insert_cache(new_cache_2)
 
 
 # ------------------------------------------------------------------- ОПЛАТА -------------------------------------------------------
@@ -179,11 +205,18 @@ async def on_successful_payment(message: types.Message):
 
     texts = await get_texts(user_lang) # получение текста на языке пользователя
     
-    _, amount, message_id_str, file_type = payload.split("|") # получение данных
+    _, tariff, message_id_str, file_type = payload.split("|") # получение данных
+
+    if tariff == "standard":
+        amount = AMOUNT
+        pro = False
+    elif tariff == "pro":
+        amount = AMOUNT_PRO
+        pro = True
 
     # добавление платежа в бд
     async with PaymentClient() as payment_client:
-        new_payment = Payment(user_id, int(message_id_str), int(amount), PaymentType.RESTORATION.value)
+        new_payment = Payment(user_id, int(message_id_str), amount, PaymentType.RESTORATION.value)
         await payment_client.insert_payment(new_payment)
 
     # получаем кэш
@@ -210,7 +243,7 @@ async def on_successful_payment(message: types.Message):
     photo_restorer = PhotoRestorer()
 
     try:
-        photo_file = await photo_restorer.restore(bot, file_path, caption)
+        photo_file = await photo_restorer.restore(bot, file_path, caption, pro)
     except Exception as e:
         print("Ошибка при обработке изображения Nano Banano:", e)
         photo_file = None
@@ -222,10 +255,13 @@ async def on_successful_payment(message: types.Message):
         async with UserClient() as user_client:
             await user_client.update_field_free_generate(user_id, True)
     else:
-        if file_type == "image":
-            await message.answer_photo(photo=photo_file, caption=texts["TEXT"]["photo_is_ready"], reply_to_message_id=int(message_id_str))
-        else:
-            await message.answer_document(document=photo_file, reply_to_message_id=int(message_id_str))
+        # if file_type == "image":
+        #     await message.answer_photo(photo=photo_file, caption=texts["TEXT"]["photo_is_ready"], reply_to_message_id=int(message_id_str))
+        # else:
+        #     await message.answer_document(document=photo_file, reply_to_message_id=int(message_id_str))
+        
+        await message.answer_photo(photo=photo_file, caption=texts["TEXT"]["photo_is_ready"], reply_to_message_id=int(message_id_str))
+        await message.answer_document(document=photo_file, reply_to_message_id=int(message_id_str))
     
     # подчищаем мусор
     async with CacheClient() as cache_client:
