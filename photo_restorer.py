@@ -84,8 +84,8 @@ class PhotoRestorer:
                         # }
 
             # 💾 Сохраняем весь ответ в файл
-            with open("response_full.txt", "w", encoding="utf-8") as f:
-                json.dump(response.model_dump(), f, ensure_ascii=False, indent=2)
+            # with open("response_full.txt", "w", encoding="utf-8") as f:
+            #     json.dump(response.model_dump(), f, ensure_ascii=False, indent=2)
             
             logging.info(f"✅ Получен ответ от OpenRouter")
             logging.info(f"📊 Тип ответа: {type(response)}")
